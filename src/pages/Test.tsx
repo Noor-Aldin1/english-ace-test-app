@@ -46,11 +46,18 @@ const Test = () => {
     startTest();
 
     const timer = setInterval(() => {
-      updateTime(timeRemaining - 1);
+      updateTime(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          endTest();
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isAuthenticated, navigate, timeRemaining]);
+  }, [isAuthenticated, navigate]);
 
   // If test is completed, redirect to results page
   useEffect(() => {

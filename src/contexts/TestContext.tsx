@@ -17,7 +17,7 @@ interface TestContextType {
   startTest: () => void;
   endTest: () => void;
   submitAnswer: (questionId: number, selectedOption: string) => void;
-  updateTime: (seconds: number) => void;
+  updateTime: (updater: (prev: number) => number) => void;
   resetTest: () => void;
 }
 
@@ -43,9 +43,9 @@ export const TestProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Update the remaining time
-  const updateTime = (seconds: number) => {
-    setTimeRemaining(seconds);
-    if (seconds <= 0) {
+  const updateTime = (updater: (prev: number) => number) => {
+    setTimeRemaining(updater);
+    if (timeRemaining <= 0) {
       endTest();
     }
   };
