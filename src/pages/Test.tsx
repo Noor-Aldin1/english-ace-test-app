@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/sonner';
-import { AlertTriangle, Clock } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle } from 'lucide-react';
 
 const Test = () => {
   const { isAuthenticated } = useAuth();
@@ -62,6 +62,24 @@ const Test = () => {
   // Calculate test progress
   const progress = (answers.length / questions.length) * 100;
 
+  // Check if current question has been answered
+  const isQuestionAnswered = (questionId: number) => {
+    return answers.some(answer => answer.questionId === questionId);
+  };
+
+  // Get selected option for current question if it exists
+  useEffect(() => {
+    const currentQuestionId = questions[currentQuestionIndex]?.id;
+    if (currentQuestionId) {
+      const existingAnswer = answers.find(a => a.questionId === currentQuestionId);
+      if (existingAnswer) {
+        setSelectedOption(existingAnswer.selectedOption);
+      } else {
+        setSelectedOption("");
+      }
+    }
+  }, [currentQuestionIndex, answers]);
+
   // Handle next question button
   const handleNextQuestion = () => {
     if (selectedOption) {
@@ -70,9 +88,6 @@ const Test = () => {
         questions[currentQuestionIndex].id,
         selectedOption
       );
-
-      // Clear selection for next question
-      setSelectedOption("");
 
       // Check if it's the last question
       if (currentQuestionIndex === questions.length - 1) {
@@ -85,9 +100,21 @@ const Test = () => {
     }
   };
 
+  // Handle previous question button
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
   // Handle option selection
   const handleOptionChange = (value: string) => {
     setSelectedOption(value);
+  };
+
+  // Navigate directly to a specific question
+  const navigateToQuestion = (index: number) => {
+    setCurrentQuestionIndex(index);
   };
 
   // Current question
@@ -106,7 +133,25 @@ const Test = () => {
           </div>
         </div>
 
-        <Progress value={progress} className="h-2 mb-8" />
+        <Progress value={progress} className="h-2 mb-4" />
+        
+        {/* Question navigation */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {questions.map((question, index) => (
+            <Button 
+              key={question.id}
+              variant={currentQuestionIndex === index ? "default" : "outline"}
+              size="sm"
+              className={`relative ${isQuestionAnswered(question.id) ? "border-english-green" : ""}`}
+              onClick={() => navigateToQuestion(index)}
+            >
+              {index + 1}
+              {isQuestionAnswered(question.id) && (
+                <CheckCircle className="h-3 w-3 absolute -top-1 -right-1 text-english-green" />
+              )}
+            </Button>
+          ))}
+        </div>
 
         <Card>
           <CardHeader>
@@ -140,9 +185,18 @@ const Test = () => {
                 </div>
               )}
             </div>
-            <Button onClick={handleNextQuestion}>
-              {currentQuestionIndex === questions.length - 1 ? "Finish Test" : "Next Question"}
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handlePreviousQuestion}
+                disabled={currentQuestionIndex === 0}
+              >
+                Previous
+              </Button>
+              <Button onClick={handleNextQuestion}>
+                {currentQuestionIndex === questions.length - 1 ? "Finish Test" : "Next Question"}
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       </div>
