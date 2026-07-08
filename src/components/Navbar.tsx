@@ -26,8 +26,8 @@ const Navbar: React.FC = () => {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-2">
           <Link to="/" className="flex items-center gap-2">
-            <GraduationCap className="h-6 w-6 text-english-blue" />
-            <span className="font-bold text-xl text-english-blue">EnglishAce</span>
+            <GraduationCap className="h-6 w-6 text-primary" />
+            <span className="font-bold text-xl text-primary">EnglishAce</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6 ml-6">

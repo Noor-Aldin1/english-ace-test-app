@@ -69,6 +69,9 @@ export default {
 				"english-light-blue": "#BBDEFB",
 				"english-light-green": "#C8E6C9"
 			},
+			fontFamily: {
+				sans: ['Outfit', 'sans-serif'],
+			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',

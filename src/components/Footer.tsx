@@ -9,8 +9,8 @@ const Footer: React.FC = () => {
       <div className="container">
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center gap-2 mb-4 md:mb-0">
-            <GraduationCap className="h-6 w-6 text-english-blue" />
-            <span className="font-bold text-xl text-english-blue">EnglishAce</span>
+            <GraduationCap className="h-6 w-6 text-primary" />
+            <span className="font-bold text-xl text-primary">EnglishAce</span>
           </div>
           
           <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-center">
