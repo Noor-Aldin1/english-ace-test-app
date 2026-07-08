@@ -33,7 +33,7 @@ function getRandomQuestionsByCategory(
  */
 function prepareExamQuestion(question: Question): ExamQuestion {
   const optionsArray = Object.entries(question.options).map(([key, value]) => ({
-    key, // this is the original key (a, b, c, d) that corresponds to correctOption
+    key, // this is the original key (a, b, c, d) that corresponds to correctAnswer
     value,
   }));
 

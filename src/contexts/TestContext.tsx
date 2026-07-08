@@ -11,6 +11,7 @@ interface TestContextType {
   questions: ExamQuestion[];
   answers: AnswerType[];
   timeRemaining: number;
+  totalTime: number;
   isTestCompleted: boolean;
   score: number | null;
   proficiencyLevel: string | null;
@@ -27,14 +28,15 @@ interface TestContextType {
 
 const TestContext = createContext<TestContextType | undefined>(undefined);
 
-// Total test time in seconds (15 minutes)
-const TOTAL_TEST_TIME = 15 * 60;
+// Configuration for dynamic timer
+export const SECONDS_PER_QUESTION = 60;
 const SESSION_KEY = 'english_ace_exam_session';
 
 interface SessionState {
   questions: ExamQuestion[];
   answers: AnswerType[];
   timeRemaining: number;
+  totalTime: number;
   isTestCompleted: boolean;
   score: number | null;
   proficiencyLevel: string | null;
@@ -45,7 +47,8 @@ interface SessionState {
 export const TestProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [answers, setAnswers] = useState<AnswerType[]>([]);
-  const [timeRemaining, setTimeRemaining] = useState<number>(TOTAL_TEST_TIME);
+  const [timeRemaining, setTimeRemaining] = useState<number>(0);
+  const [totalTime, setTotalTime] = useState<number>(0);
   const [isTestCompleted, setIsTestCompleted] = useState<boolean>(false);
   const [score, setScore] = useState<number | null>(null);
   const [proficiencyLevel, setProficiencyLevel] = useState<string | null>(null);
@@ -53,6 +56,92 @@ export const TestProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Track if we've initialized from local storage to prevent unnecessary saves during first render
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // --- Callback Definitions in Dependency Order ---
+
+  // Calculate results and end test
+  const endTest = useCallback(() => {
+    // Wait for the state to be updated before ending
+    setIsTestCompleted(true);
+  }, []);
+
+  const clearSession = useCallback(() => {
+    localStorage.removeItem(SESSION_KEY);
+    setQuestions([]);
+    setAnswers([]);
+    setTimeRemaining(0);
+    setTotalTime(0);
+    setIsTestCompleted(false);
+    setScore(null);
+    setProficiencyLevel(null);
+    setFlaggedQuestions([]);
+  }, []);
+
+  // Update the remaining time
+  const updateTime = useCallback((updater: (prev: number) => number) => {
+    setTimeRemaining(prev => {
+      const newTime = updater(prev);
+      if (newTime <= 0 && prev > 0) {
+        // We defer the endTest call to avoid state updates during render phase if called synchronously
+        setTimeout(() => endTest(), 0); 
+      }
+      return newTime;
+    });
+  }, [endTest]);
+
+  // Start the test
+  const startTest = useCallback((forceNew: boolean = false) => {
+    if (forceNew || questions.length === 0) {
+      const newQuestions = generateRandomExam(25); // 25 questions default
+      const calculatedTotalTime = newQuestions.length * SECONDS_PER_QUESTION;
+      setQuestions(newQuestions);
+      setAnswers([]);
+      setTimeRemaining(calculatedTotalTime);
+      setTotalTime(calculatedTotalTime);
+      setIsTestCompleted(false);
+      setScore(null);
+      setProficiencyLevel(null);
+      setFlaggedQuestions([]);
+    }
+  }, [questions.length]);
+
+  const resetTest = useCallback(() => {
+    clearSession();
+    startTest(true);
+  }, [startTest, clearSession]);
+
+  // Submit an answer
+  const submitAnswer = useCallback((questionId: string, selectedOption: string) => {
+    const question = questions.find(q => q.id === questionId);
+    if (!question) return;
+    
+    const isCorrect = question.correctAnswer === selectedOption;
+    
+    setAnswers(prev => {
+      const existingAnswerIndex = prev.findIndex(a => a.questionId === questionId);
+      
+      if (existingAnswerIndex >= 0) {
+        const updated = [...prev];
+        updated[existingAnswerIndex] = { questionId, selectedOption, isCorrect };
+        return updated;
+      } else {
+        return [...prev, { questionId, selectedOption, isCorrect }];
+      }
+    });
+  }, [questions]);
+
+  // Toggle flag status for a question
+  const toggleFlagQuestion = useCallback((questionId: string) => {
+    setFlaggedQuestions(prev => {
+      if (prev.includes(questionId)) {
+        return prev.filter(id => id !== questionId);
+      } else {
+        return [...prev, questionId];
+      }
+    });
+  }, []);
+
+  // --- Effects ---
 
   // Initialize from local storage or set defaults
   useEffect(() => {
@@ -67,7 +156,8 @@ export const TestProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isExpired && !parsed.isTestCompleted) {
           setQuestions(parsed.questions || []);
           setAnswers(parsed.answers || []);
-          setTimeRemaining(parsed.timeRemaining || TOTAL_TEST_TIME);
+          setTimeRemaining(parsed.timeRemaining || 0);
+          setTotalTime(parsed.totalTime || (parsed.questions?.length || 0) * SECONDS_PER_QUESTION);
           setIsTestCompleted(parsed.isTestCompleted || false);
           setScore(parsed.score || null);
           setProficiencyLevel(parsed.proficiencyLevel || null);
@@ -97,6 +187,7 @@ export const TestProvider: React.FC<{ children: React.ReactNode }> = ({ children
         questions,
         answers,
         timeRemaining,
+        totalTime,
         isTestCompleted,
         score,
         proficiencyLevel,
@@ -105,70 +196,7 @@ export const TestProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       localStorage.setItem(SESSION_KEY, JSON.stringify(stateToSave));
     }
-  }, [questions, answers, timeRemaining, isTestCompleted, score, proficiencyLevel, flaggedQuestions, isInitialized]);
-
-  // Start the test
-  const startTest = useCallback((forceNew: boolean = false) => {
-    if (forceNew || questions.length === 0) {
-      const newQuestions = generateRandomExam(25); // 25 questions default
-      setQuestions(newQuestions);
-      setAnswers([]);
-      setTimeRemaining(TOTAL_TEST_TIME);
-      setIsTestCompleted(false);
-      setScore(null);
-      setProficiencyLevel(null);
-      setFlaggedQuestions([]);
-    }
-  }, [questions.length]);
-
-  // Update the remaining time
-  const updateTime = useCallback((updater: (prev: number) => number) => {
-    setTimeRemaining(prev => {
-      const newTime = updater(prev);
-      if (newTime <= 0 && prev > 0) {
-        // We defer the endTest call to avoid state updates during render phase if called synchronously
-        setTimeout(() => endTest(), 0); 
-      }
-      return newTime;
-    });
-  }, [endTest]);
-
-  // Submit an answer
-  const submitAnswer = useCallback((questionId: string, selectedOption: string) => {
-    const question = questions.find(q => q.id === questionId);
-    if (!question) return;
-    
-    const isCorrect = question.correctOption === selectedOption;
-    
-    setAnswers(prev => {
-      const existingAnswerIndex = prev.findIndex(a => a.questionId === questionId);
-      
-      if (existingAnswerIndex >= 0) {
-        const updated = [...prev];
-        updated[existingAnswerIndex] = { questionId, selectedOption, isCorrect };
-        return updated;
-      } else {
-        return [...prev, { questionId, selectedOption, isCorrect }];
-      }
-    });
-  }, [questions]);
-
-  // Toggle flag status for a question
-  const toggleFlagQuestion = useCallback((questionId: string) => {
-    setFlaggedQuestions(prev => {
-      if (prev.includes(questionId)) {
-        return prev.filter(id => id !== questionId);
-      } else {
-        return [...prev, questionId];
-      }
-    });
-  }, []);
-
-  // Calculate results and end test
-  const endTest = useCallback(() => {
-    // Wait for the state to be updated before ending
-    setIsTestCompleted(true);
-  }, []);
+  }, [questions, answers, timeRemaining, totalTime, isTestCompleted, score, proficiencyLevel, flaggedQuestions, isInitialized]);
 
   // React to isTestCompleted turning true
   useEffect(() => {
@@ -189,28 +217,13 @@ export const TestProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isTestCompleted, answers, score, questions.length]);
 
-  const resetTest = useCallback(() => {
-    clearSession();
-    startTest(true);
-  }, [startTest, clearSession]);
-
-  const clearSession = useCallback(() => {
-    localStorage.removeItem(SESSION_KEY);
-    setQuestions([]);
-    setAnswers([]);
-    setTimeRemaining(TOTAL_TEST_TIME);
-    setIsTestCompleted(false);
-    setScore(null);
-    setProficiencyLevel(null);
-    setFlaggedQuestions([]);
-  }, []);
-
   return (
     <TestContext.Provider
       value={{
         questions,
         answers,
         timeRemaining,
+        totalTime,
         isTestCompleted,
         score,
         proficiencyLevel,
